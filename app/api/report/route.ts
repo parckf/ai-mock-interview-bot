@@ -8,8 +8,8 @@ export async function POST(req: Request) {
     const { name, email, role, turns } = await req.json() as { name: string; email: string; role: Role; turns: Turn[] };
     if (!name?.trim() || name.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !ROLES.includes(role) || !Array.isArray(turns) || turns.length !== 5 || turns.some(t => !t || typeof t.question !== 'string' || !t.question || t.question.length > 1000 || typeof t.answer !== 'string' || !t.answer || t.answer.length > 8000 || typeof t.score !== 'number' || t.score < 1 || t.score > 10)) return NextResponse.json({ error: 'The interview report is incomplete.' }, { status: 400 });
     const score = Math.round(turns.reduce((sum, turn) => sum + Number(turn.score), 0) / turns.length * 10) / 10;
-    const strengths = [...new Set(turns.flatMap(t => (t as Turn & { strengths?: string[] }).strengths || []))].slice(0, 4);
-    const improvements = [...new Set(turns.flatMap(t => (t as Turn & { improvements?: string[] }).improvements || []))].slice(0, 4);
+    const strengths = Array.from(new Set(turns.flatMap(t => (t as Turn & { strengths?: string[] }).strengths || []))).slice(0, 4);
+    const improvements = Array.from(new Set(turns.flatMap(t => (t as Turn & { improvements?: string[] }).improvements || []))).slice(0, 4);
     let summary = `You scored ${score}/10 across five questions. Keep practicing with specific examples and clearly explained outcomes.`;
     if (process.env.GROQ_API_KEY) {
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
