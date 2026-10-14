@@ -9,6 +9,8 @@ Project #11 for the GenAI track: a role-based AI interviewer that asks one quest
 - [x] **AI evaluates each answer** — each submitted answer receives a 1–10 score, feedback, strengths, and improvement ideas.
 - [x] **Final score and feedback report (also emailed)** — the report combines all five evaluations, displays next steps, and emails a copy when Resend is configured.
 
+The landing page asks candidates to confirm that their answers will be analyzed, emailed, and saved when Supabase is enabled.
+
 ## Stack
 
 - Next.js 14 App Router, TypeScript, and Tailwind CSS
@@ -40,6 +42,8 @@ On Windows PowerShell, use `Copy-Item .env.example .env.local` for the second co
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (server-side use in this app) |
 
 The app works without Murf or Supabase. If Resend is not configured, the final report remains available on screen. Groq is required for generating and evaluating questions.
+
+The footer lists the project contact email (`arjunsingha.tech@gmail.com`), phone (`8264627200`), and copyright notice.
 
 ## Supabase setup
 
