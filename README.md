@@ -14,13 +14,15 @@ The landing page asks candidates to confirm that their answers will be analyzed,
 ## Stack
 
 - Next.js 14 App Router, TypeScript, and Tailwind CSS
-- Groq (`groq-sdk`) with `llama-3.3-70b-versatile`
+- Groq (`groq-sdk`) with `openai/gpt-oss-120b`
 - Murf text-to-speech through a Next.js API route
 - Browser Web Speech API for microphone input, with a typed-answer fallback
 - Supabase for optional interview history
 - Resend for optional email delivery
 
 All third-party requests run in Next.js API routes. API credentials are read from server environment variables and are never included in client bundles.
+
+The assignment's originally requested `llama-3.3-70b-versatile` model was shut down on Groq on August 16, 2026, so the app uses Groq's currently supported `openai/gpt-oss-120b` production model instead.
 
 ## Run locally
 
