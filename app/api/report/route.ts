@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
+import { Resend } from 'resend';
 import { getSupabase } from '@/lib/supabase';
 import { ROLES, type InterviewReport, type Role, type Turn } from '@/lib/types';
 export async function POST(req: Request) {
@@ -25,30 +26,20 @@ export async function POST(req: Request) {
       const { error } = await supabase.from('interviews').insert({ name, email, role, score, report, turns });
       if (error) console.error('Could not save interview:', error.message);
     }
-    if (!process.env.BREVO_API_KEY || !process.env.BREVO_FROM_EMAIL) {
-      report.emailError = 'Email is not configured on the server. Add BREVO_API_KEY and BREVO_FROM_EMAIL in Vercel, then redeploy.';
+    if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) {
+      report.emailError = 'Email is not configured on the server. Add RESEND_API_KEY and RESEND_FROM_EMAIL in Vercel, then redeploy.';
     } else {
       try {
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: { 'accept': 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
-          body: JSON.stringify({
-            sender: { name: 'Morrow', email: process.env.BREVO_FROM_EMAIL },
-            to: [{ email }],
-            subject: `Your ${role} mock interview report`,
-            htmlContent: `<main style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#17251e"><p style="color:#315b46;font-weight:bold">MORROW · INTERVIEW REPORT</p><h1>${escapeHtml(name)}, your score: ${score}/10</h1><p>${escapeHtml(summary)}</p><h2>What went well</h2><ul>${report.strengths.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul><h2>Next steps</h2><ul>${report.improvements.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>${turns.map((t,i) => `<section style="border-top:1px solid #e5e8e1;padding:12px 0"><b>Q${i+1}. ${escapeHtml(t.question)}</b><p>Score: ${t.score}/10</p><p>${escapeHtml(t.feedback || '')}</p></section>`).join('')}<p>Keep showing up. Every good interview starts with practice.</p></main>`,
-          }),
-        });
-        const result = await response.json().catch(() => ({})) as { messageId?: string; message?: string; code?: string };
-        report.emailed = response.ok && Boolean(result.messageId);
-        if (!report.emailed) {
-          const reason = result.message || result.code || `Brevo returned HTTP ${response.status}`;
-          console.error('Could not send report email:', reason);
-          report.emailError = `Brevo could not send the report: ${reason.slice(0, 220)}. Check the API key and verify the sender in Brevo.`;
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const result = await resend.emails.send({ from: process.env.RESEND_FROM_EMAIL, to: email, subject: `Your ${role} mock interview report`, html: `<main style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#17251e"><p style="color:#315b46;font-weight:bold">MORROW · INTERVIEW REPORT</p><h1>${escapeHtml(name)}, your score: ${score}/10</h1><p>${escapeHtml(summary)}</p><h2>What went well</h2><ul>${report.strengths.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul><h2>Next steps</h2><ul>${report.improvements.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>${turns.map((t,i) => `<section style="border-top:1px solid #e5e8e1;padding:12px 0"><b>Q${i+1}. ${escapeHtml(t.question)}</b><p>Score: ${t.score}/10</p><p>${escapeHtml(t.feedback || '')}</p></section>`).join('')}<p>Keep showing up. Every good interview starts with practice.</p></main>` });
+        report.emailed = Boolean(result.data?.id) && !result.error;
+        if (result.error) {
+          console.error('Could not send report email:', result.error.message);
+          report.emailError = `Resend could not send the report: ${result.error.message.slice(0, 220)}. Check your Resend API key and verify the sender domain/email.`;
         }
       } catch (error) {
-        console.error('Brevo report email request failed:', error instanceof Error ? error.message : 'Unknown error');
-        report.emailError = 'Brevo could not be reached. Check your Brevo settings in Vercel and try again.';
+        console.error('Resend report email request failed:', error instanceof Error ? error.message : 'Unknown error');
+        report.emailError = 'The email service failed to send the report. Check the Resend settings in Vercel.';
       }
     }
     return NextResponse.json(report);
