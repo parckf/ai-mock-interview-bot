@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-store/
+.next/
+out/
+coverage/
+.env*
+!.env.example
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+.vercel
+*.tsbuildinfo
