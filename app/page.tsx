@@ -97,6 +97,12 @@ export default function Home() {
     const fullscreen = document.documentElement.requestFullscreen;
     if (!fullscreen) throw new Error('Fullscreen mode is not available in this browser. Try a desktop version of Chrome or Edge.');
     const fullscreenRequest = fullscreen.call(document.documentElement);
+    monitorActiveRef.current = true;
+    endingRef.current = false;
+    sessionStorage.removeItem('morrow-interview-ended');
+    sessionStorage.setItem('morrow-interview-active', 'true');
+    setEndReason('');
+    setMonitoring(true);
     setStep('interview');
     await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -106,13 +112,6 @@ export default function Home() {
     video.srcObject = stream;
     await video.play();
     await fullscreenRequest;
-
-    monitorActiveRef.current = true;
-    endingRef.current = false;
-    sessionStorage.removeItem('morrow-interview-ended');
-    sessionStorage.setItem('morrow-interview-active', 'true');
-    setEndReason('');
-    setMonitoring(true);
 
     // @ts-ignore This browser-only dependency is installed from package.json in deployed builds.
     const { FaceDetector, FilesetResolver } = await import('@mediapipe/tasks-vision');
