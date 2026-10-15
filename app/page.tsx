@@ -38,6 +38,9 @@ export default function Home() {
   const [endReason, setEndReason] = useState(() => typeof window !== 'undefined' ? sessionStorage.getItem('morrow-interview-ended') || (sessionStorage.getItem('morrow-interview-active') ? 'The interview ended because the page was reloaded or closed.' : '') : '');
   const [monitoring, setMonitoring] = useState(false);
   const [faceCount, setFaceCount] = useState<number | null>(null);
+  const [warnings, setWarnings] = useState(0);
+  const [warningMessage, setWarningMessage] = useState('');
+  const [needsFullscreen, setNeedsFullscreen] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const shouldListenRef = useRef(false);
   const speechBaseRef = useRef('');
@@ -49,6 +52,8 @@ export default function Home() {
   const monitorTimerRef = useRef<number | null>(null);
   const monitorActiveRef = useRef(false);
   const endingRef = useRef(false);
+  const warningCountRef = useRef(0);
+  const multipleFaceWarnedRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioRequestRef = useRef(0);
 
@@ -78,6 +83,7 @@ export default function Home() {
     if (endingRef.current) return;
     endingRef.current = true;
     setEndReason(reason);
+    setWarningMessage('');
     sessionStorage.setItem('morrow-interview-ended', reason);
     sessionStorage.removeItem('morrow-interview-active');
     stopMonitoring();
@@ -93,12 +99,45 @@ export default function Home() {
     setStep('ended');
   }
 
+  function addWarning(message: string, fullscreenRequired = false) {
+    if (!monitorActiveRef.current || endingRef.current) return;
+    const nextWarning = warningCountRef.current + 1;
+    warningCountRef.current = nextWarning;
+    setWarnings(nextWarning);
+    if (nextWarning >= 3) {
+      endInterview(`The interview ended after three warnings. ${message}`);
+      return;
+    }
+    setWarningMessage(message);
+    setNeedsFullscreen(fullscreenRequired);
+  }
+
+  async function resumeFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen();
+      setNeedsFullscreen(false);
+      setWarningMessage('');
+    } catch {
+      setError('Please use the button to return to fullscreen before continuing.');
+    }
+  }
+
+  function clearWarning() {
+    if (needsFullscreen || faceCount !== 1) return;
+    setWarningMessage('');
+  }
+
   async function startMonitoring() {
     const fullscreen = document.documentElement.requestFullscreen;
     if (!fullscreen) throw new Error('Fullscreen mode is not available in this browser. Try a desktop version of Chrome or Edge.');
     const fullscreenRequest = fullscreen.call(document.documentElement);
     monitorActiveRef.current = true;
     endingRef.current = false;
+    warningCountRef.current = 0;
+    multipleFaceWarnedRef.current = false;
+    setWarnings(0);
+    setWarningMessage('');
+    setNeedsFullscreen(false);
     sessionStorage.removeItem('morrow-interview-ended');
     sessionStorage.setItem('morrow-interview-active', 'true');
     setEndReason('');
@@ -138,13 +177,14 @@ export default function Home() {
         setFaceCount(count);
         noFaceFrames = count === 0 ? noFaceFrames + 1 : 0;
         multipleFaceFrames = count > 1 ? multipleFaceFrames + 1 : 0;
+        if (count <= 1) multipleFaceWarnedRef.current = false;
         if (noFaceFrames >= 12) {
           endInterview('The interview ended because no face was visible in the camera for several seconds.');
           return;
         }
-        if (multipleFaceFrames >= 4) {
-          endInterview('The interview ended because more than one face was detected in the camera.');
-          return;
+        if (multipleFaceFrames >= 4 && !multipleFaceWarnedRef.current) {
+          multipleFaceWarnedRef.current = true;
+          addWarning('More than one face was detected in the camera. Remove the extra person before continuing.');
         }
       } catch {
         endInterview('Camera monitoring stopped unexpectedly. Please start a new interview and allow camera access.');
@@ -162,7 +202,7 @@ export default function Home() {
   useEffect(() => {
     if (!monitoring) return;
     const onFullscreenChange = () => {
-      if (monitorActiveRef.current && !document.fullscreenElement) endInterview('The interview ended because fullscreen mode was exited.');
+      if (monitorActiveRef.current && !document.fullscreenElement) addWarning('You exited fullscreen mode. Return to fullscreen to continue.', true);
     };
     const onVisibilityChange = () => {
       if (monitorActiveRef.current && document.visibilityState === 'hidden') endInterview('The interview ended because the interview tab was left.');
@@ -381,7 +421,7 @@ export default function Home() {
     {step === 'interview' && <section className="mx-auto max-w-4xl px-5 pb-20 pt-8 sm:px-8 sm:pt-14">
       <button onClick={()=>endInterview('The interview ended when you left the session.')} className="mb-7 flex items-center gap-2 text-xs text-stone-500 hover:text-forest"><ArrowLeft size={14}/>End interview</button>
       <div className="mb-5 flex items-center justify-between"><div><p className="mono text-[10px] uppercase tracking-[.16em] text-stone-400">{role} · practice session</p><h1 className="display mt-1 text-3xl font-semibold">Take a breath. You’ve got this.</h1></div><span className="rounded-full bg-sage px-3 py-1.5 text-xs font-medium text-forest">{turns.length+1} of 5</span></div>
-      <div className="mb-5 flex flex-wrap items-center gap-4 rounded-2xl border border-stone-200 bg-white p-3"><video ref={cameraVideoRef} muted autoPlay playsInline className="aspect-video w-36 rounded-xl bg-stone-900 object-cover [transform:scaleX(-1)]"/><div><p className="text-xs font-semibold text-forest">Camera check active</p><p className="mt-1 text-[11px] text-stone-500">{faceCount === null ? 'Starting local face detection…' : faceCount === 1 ? 'One face detected' : faceCount === 0 ? 'No face detected' : `${faceCount} faces detected`}</p><p className="mt-1 text-[10px] text-stone-400">Stay in fullscreen and keep only yourself in view.</p></div></div>
+      <div className="mb-5 flex flex-wrap items-center gap-4 rounded-2xl border border-stone-200 bg-white p-3"><video ref={cameraVideoRef} muted autoPlay playsInline className="aspect-video w-36 rounded-xl bg-stone-900 object-cover [transform:scaleX(-1)]"/><div><p className="text-xs font-semibold text-forest">Camera check active</p><p className="mt-1 text-[11px] text-stone-500">{faceCount === null ? 'Starting local face detection…' : faceCount === 1 ? 'One face detected' : faceCount === 0 ? 'No face detected' : `${faceCount} faces detected`}</p><p className="mt-1 text-[10px] text-stone-400">Stay in fullscreen and keep only yourself in view.</p><p className="mt-1 text-[10px] font-medium text-forest">Warnings: {warnings} / 3</p></div></div>
       <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-stone-200"><div className="h-full rounded-full bg-forest transition-all" style={{width:`${turns.length/5*100}%`}}/></div>
       <div className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-10">
         <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-forest text-lime"><AudioLines size={20}/></span><div><p className="text-sm font-semibold">Your interviewer</p><p className="text-[11px] text-stone-400">{busy&&!feedback?'Preparing question and voice…':'A thoughtful conversation, one question at a time'}</p></div><button aria-label="Read question aloud" onClick={()=>{if(question)speakQuestion(question);}} disabled={!question} className="ml-auto rounded-full border border-stone-200 p-2.5 text-stone-500 hover:bg-stone-50 disabled:opacity-40"><Volume2 size={16}/></button></div>
@@ -398,6 +438,8 @@ export default function Home() {
 
     {step === 'ended' && <section className="mx-auto max-w-2xl px-5 py-24 text-center"><div className="rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm sm:p-12"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-red-50 text-red-700"><CircleHelp size={24}/></span><h1 className="display mt-5 text-3xl font-semibold">Interview session ended</h1><p className="mt-3 text-sm leading-6 text-stone-600">{endReason || 'This interview session was interrupted.'}</p><p className="mt-3 text-xs leading-5 text-stone-400">To keep the practice fair, interrupted sessions cannot be resumed. Your camera feed was not recorded.</p><button onClick={()=>{sessionStorage.removeItem('morrow-interview-ended');sessionStorage.removeItem('morrow-interview-active');window.location.reload();}} className="mt-7 rounded-xl bg-forest px-5 py-3.5 text-sm font-semibold text-white">Start a new interview</button></div></section>}
 
+
+    {warningMessage && step === 'interview' && <div className="fixed inset-0 z-[100] grid place-items-center bg-[#10251d]/70 p-5 backdrop-blur-sm"><div role="alertdialog" aria-modal="true" aria-labelledby="warning-title" className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-7 shadow-2xl"><p className="mono text-[10px] uppercase tracking-[.16em] text-red-700">Warning {warnings} of 3</p><h2 id="warning-title" className="display mt-3 text-2xl font-semibold">Please follow the interview rules</h2><p className="mt-3 text-sm leading-6 text-stone-600">{warningMessage}</p><p className="mt-3 text-xs leading-5 text-stone-400">The interview ends after three warnings. Your answers are kept while you return.</p>{needsFullscreen ? <button onClick={resumeFullscreen} className="mt-6 w-full rounded-xl bg-forest px-5 py-3.5 text-sm font-semibold text-white">Return to fullscreen</button> : <button onClick={clearWarning} disabled={faceCount !== 1} className="mt-6 w-full rounded-xl bg-forest px-5 py-3.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{faceCount === 1 ? 'Continue interview' : 'Waiting for one face in camera'}</button>}</div></div>}
 
     <footer className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-2 border-t border-stone-200 px-6 py-5 text-[10px] text-stone-500 sm:flex-row sm:items-center lg:px-10"><span>morrow. · A practice space for what comes next.</span><span>Contact: <a className="underline underline-offset-2" href="mailto:arjunsingha.tech@gmail.com">arjunsingha.tech@gmail.com</a> · <a className="underline underline-offset-2" href="tel:+918264627200">8264627200</a></span><span>© 2026 AI Mock Interview Bot. All rights reserved.</span></footer>
     </main>
