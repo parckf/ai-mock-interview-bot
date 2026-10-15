@@ -11,7 +11,7 @@ Project #11 for the GenAI track: a role-based AI interviewer that asks one quest
 
 The landing page asks candidates to confirm that their answers will be analyzed, emailed, and saved when Supabase is enabled.
 
-Before the interview, candidates also consent to fullscreen and camera face-count checks. Face detection runs locally in the browser; camera video is never recorded or sent to the server. Leaving the interview window, reloading, exiting fullscreen, a sustained missing face, or multiple detected faces ends the session. This is an integrity signal, not a way to identify which external app a candidate opens.
+Before the interview, candidates also consent to fullscreen and local camera face-count checks. Face detection runs locally in the browser; camera video is never recorded or sent to the server. Leaving the interview window, reloading, a sustained missing face, or disconnecting the camera ends the session. Exiting fullscreen or a sustained multiple-face event triggers a warning; the third warning ends the interview. Candidates must return to fullscreen or restore a single visible face before dismissing the warning. This is an integrity signal, not a way to identify which external app a candidate opens.
 
 ## Stack
 
