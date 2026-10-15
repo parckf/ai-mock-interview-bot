@@ -124,6 +124,7 @@ export default function Home() {
 
   function clearWarning() {
     if (needsFullscreen || faceCount !== 1) return;
+    multipleFaceWarnedRef.current = false;
     setWarningMessage('');
   }
 
@@ -177,7 +178,6 @@ export default function Home() {
         setFaceCount(count);
         noFaceFrames = count === 0 ? noFaceFrames + 1 : 0;
         multipleFaceFrames = count > 1 ? multipleFaceFrames + 1 : 0;
-        if (count <= 1) multipleFaceWarnedRef.current = false;
         if (noFaceFrames >= 12) {
           endInterview('The interview ended because no face was visible in the camera for several seconds.');
           return;
