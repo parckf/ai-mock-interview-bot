@@ -5,7 +5,7 @@ Project #11 for the GenAI track: a role-based AI interviewer that asks one quest
 ## Assignment checklist
 
 - [x] **Role selection** — choose Software Developer, Data Analyst, AI/ML Engineer, or Web Developer before starting.
-- [x] **AI asks questions one by one** — a Groq server route creates five role-specific questions in sequence.
+- [x] **AI asks questions one by one** — a Gemini server route creates five role-specific questions in sequence.
 - [x] **AI evaluates each answer** — each submitted answer receives a 1–10 score, feedback, strengths, and improvement ideas.
 - [x] **Final score and feedback report (also emailed)** — the report combines all five evaluations, displays next steps, and emails a copy when Resend is configured.
 
@@ -14,7 +14,7 @@ The landing page asks candidates to confirm that their answers will be analyzed,
 ## Stack
 
 - Next.js 14 App Router, TypeScript, and Tailwind CSS
-- Groq (`groq-sdk`) with `openai/gpt-oss-120b`
+- Google Gemini API with `gemini-3.1-flash-lite`
 - Murf text-to-speech through a Next.js API route
 - Browser Web Speech API for microphone input, with a typed-answer fallback
 - Supabase for optional interview history
@@ -22,7 +22,7 @@ The landing page asks candidates to confirm that their answers will be analyzed,
 
 All third-party requests run in Next.js API routes. API credentials are read from server environment variables and are never included in client bundles.
 
-The assignment's originally requested `llama-3.3-70b-versatile` model was shut down on Groq on August 16, 2026, so the app uses Groq's currently supported `openai/gpt-oss-120b` production model instead.
+Google currently lists Gemini 3.8 Flash-Lite as a speech synthesis model. This app uses `gemini-3.1-flash-lite`, its general-purpose lightweight model, for interviewer questions, evaluations, and report summaries; Murf handles speech output.
 
 ## Run locally
 
@@ -36,14 +36,14 @@ On Windows PowerShell, use `Copy-Item .env.example .env.local` for the second co
 
 | Variable | Used for |
 | --- | --- |
-| `GROQ_API_KEY` | Question generation, answer evaluation, and report summary |
+| `GEMINI_API_KEY` | Question generation, answer evaluation, and report summary |
 | `MURF_API_KEY` | Spoken interviewer questions |
 | `RESEND_API_KEY` | Sending the final report by email |
 | `RESEND_FROM_EMAIL` | Verified Resend sender address |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (server-side use in this app) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (server-side use in this app) |
 
-The app works without Murf or Supabase. If Resend is not configured, the final report remains available on screen. Groq is required for generating and evaluating questions.
+The app works without Murf or Supabase. If Resend is not configured, the final report remains available on screen. Gemini is required for generating and evaluating questions.
 
 The footer lists the project contact email (`arjunsingha.tech@gmail.com`), phone (`8264627200`), and copyright notice.
 
@@ -55,8 +55,8 @@ Run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor. The
 
 | Route | Purpose |
 | --- | --- |
-| `POST /api/question` | Generate the next role-specific question with Groq |
-| `POST /api/evaluate` | Score one answer and return feedback with Groq |
+| `POST /api/question` | Generate the next role-specific question with Gemini |
+| `POST /api/evaluate` | Score one answer and return feedback with Gemini |
 | `POST /api/voice` | Generate interviewer speech with Murf |
 | `POST /api/report` | Build the final report, optionally store it in Supabase, and email it through Resend |
 
