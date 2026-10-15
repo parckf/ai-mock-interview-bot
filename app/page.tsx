@@ -346,7 +346,8 @@ export default function Home() {
     }
   }
 
-  return <main className="min-h-screen grain">
+  return (
+    <main className="min-h-screen grain">
     <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-10">
       <a href="#top" className="flex items-center gap-2.5 font-bold tracking-tight"><span className="grid size-9 place-items-center rounded-xl bg-forest text-lime"><AudioLines size={19}/></span><span className="display text-xl">morrow<span className="text-forest">.</span></span></a>
       <div className="hidden items-center gap-2 text-xs font-medium text-stone-500 sm:flex"><span className="size-1.5 rounded-full bg-lime-500"/>A calmer way to get interview-ready</div>
@@ -399,6 +400,7 @@ export default function Home() {
 
 
     <footer className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-2 border-t border-stone-200 px-6 py-5 text-[10px] text-stone-500 sm:flex-row sm:items-center lg:px-10"><span>morrow. · A practice space for what comes next.</span><span>Contact: <a className="underline underline-offset-2" href="mailto:arjunsingha.tech@gmail.com">arjunsingha.tech@gmail.com</a> · <a className="underline underline-offset-2" href="tel:+918264627200">8264627200</a></span><span>© 2026 AI Mock Interview Bot. All rights reserved.</span></footer>
-  </main>;
+    </main>
+  );
 }
 
