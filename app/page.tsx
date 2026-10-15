@@ -5,8 +5,9 @@ import { ArrowLeft, ArrowRight, AudioLines, BadgeCheck, BrainCircuit, BriefcaseB
 import { ROLES, type InterviewReport, type Role, type Turn } from '@/lib/types';
 
 type ScoredTurn = Turn & { strengths: string[]; improvements: string[] };
-type SpeechRecognitionEvent = { results: ArrayLike<ArrayLike<{ transcript: string }>> };
-type SpeechRecognitionLike = { lang: string; interimResults: boolean; onresult: ((event: SpeechRecognitionEvent) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start(): void; stop(): void };
+type SpeechRecognitionEvent = { results: ArrayLike<ArrayLike<{ transcript: string; isFinal: boolean }>> };
+type SpeechRecognitionErrorEvent = { error: string };
+type SpeechRecognitionLike = { lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: SpeechRecognitionEvent) => void) | null; onerror: ((event: SpeechRecognitionErrorEvent) => void) | null; onend: (() => void) | null; start(): void; stop(): void };
 type SpeechWindow = Window & { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
 const roleDescriptions: Record<Role, string> = { 'Software Developer': 'Engineering & systems', 'Data Analyst': 'Insights & decisions', 'AI/ML Engineer': 'Models & intelligence', 'Web Developer': 'Modern web craft' };
 const roleIcons = [Code2, Database, BrainCircuit, AudioLines];
@@ -34,6 +35,10 @@ export default function Home() {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const shouldListenRef = useRef(false);
+  const speechBaseRef = useRef('');
+  const speechFinalRef = useRef('');
+  const speechSessionFinalRef = useRef('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioRequestRef = useRef(0);
 
@@ -120,13 +125,68 @@ export default function Home() {
     const speechWindow = window as SpeechWindow;
     const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!Recognition) { setError('Speech input is not supported in this browser. Type your answer instead.'); return; }
-    if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
-    const recognition = new Recognition(); recognition.lang = 'en-US'; recognition.interimResults = true;
+    if (shouldListenRef.current) {
+      shouldListenRef.current = false;
+      setListening(false);
+      recognitionRef.current?.stop();
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    speechBaseRef.current = answer.trim();
+    speechFinalRef.current = '';
+    speechSessionFinalRef.current = '';
     recognitionRef.current = recognition;
-    recognition.onresult = event => setAnswer(Array.from(event.results).map(result => result[0].transcript).join(''));
-    recognition.onerror = () => { setListening(false); recognitionRef.current = null; setError('Microphone input stopped. You can type your answer instead.'); };
-    recognition.onend = () => { setListening(false); recognitionRef.current = null; };
-    recognition.start(); setListening(true); setError('');
+    shouldListenRef.current = true;
+    recognition.onresult = event => {
+      const results = Array.from(event.results);
+      speechSessionFinalRef.current = results.filter(result => result[0].isFinal).map(result => result[0].transcript.trim()).filter(Boolean).join(' ');
+      const interim = results.filter(result => !result[0].isFinal).map(result => result[0].transcript.trim()).filter(Boolean).join(' ');
+      setAnswer([speechBaseRef.current, speechFinalRef.current, speechSessionFinalRef.current, interim].filter(Boolean).join(' '));
+    };
+    recognition.onerror = event => {
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      shouldListenRef.current = false;
+      setListening(false);
+      recognitionRef.current = null;
+      setError(event.error === 'not-allowed' || event.error === 'service-not-allowed'
+        ? 'Microphone permission is blocked. Allow microphone access in your browser, or type your answer.'
+        : 'Microphone recognition was interrupted. You can continue by typing your answer.');
+    };
+    recognition.onend = () => {
+      if (recognitionRef.current !== recognition) return;
+      if (speechSessionFinalRef.current) {
+        speechFinalRef.current = [speechFinalRef.current, speechSessionFinalRef.current].filter(Boolean).join(' ');
+        speechSessionFinalRef.current = '';
+      }
+      if (!shouldListenRef.current) {
+        setListening(false);
+        recognitionRef.current = null;
+        return;
+      }
+      window.setTimeout(() => {
+        if (!shouldListenRef.current || recognitionRef.current !== recognition) return;
+        try { recognition.start(); }
+        catch {
+          shouldListenRef.current = false;
+          setListening(false);
+          recognitionRef.current = null;
+          setError('Microphone recognition could not restart. You can continue by typing your answer.');
+        }
+      }, 250);
+    };
+    try {
+      recognition.start();
+      setListening(true);
+      setError('');
+    } catch {
+      shouldListenRef.current = false;
+      recognitionRef.current = null;
+      setListening(false);
+      setError('Could not start microphone input. Check browser microphone permission or type your answer.');
+    }
   }
 
   return <main className="min-h-screen grain">
